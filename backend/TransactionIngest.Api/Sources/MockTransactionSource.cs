@@ -11,6 +11,7 @@ public enum MockScenario
 
 public sealed class MockScenarioState
 {
+    private readonly SemaphoreSlim _operationGate = new(1, 1);
     private volatile MockScenario _scenario = MockScenario.Baseline;
 
     public MockScenario Scenario
@@ -23,9 +24,26 @@ public sealed class MockScenarioState
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown mock scenario.");
             }
 
-            _scenario = value;
+            if (!_operationGate.Wait(0))
+            {
+                throw new InvalidOperationException("Cannot change the scenario while an import is running.");
+            }
+
+            try
+            {
+                _scenario = value;
+            }
+            finally
+            {
+                _operationGate.Release();
+            }
         }
     }
+
+    internal Task<bool> TryBeginImportAsync(CancellationToken cancellationToken) =>
+        _operationGate.WaitAsync(0, cancellationToken);
+
+    internal void EndImport() => _operationGate.Release();
 }
 
 public sealed class MockTransactionSource : ITransactionSource

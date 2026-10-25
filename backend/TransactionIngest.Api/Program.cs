@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 using TransactionIngest.Api.Data;
+using TransactionIngest.Api.Services;
 using TransactionIngest.Api.Sources;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +28,8 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<TransactionIngestDbContext>(options =>
     options.UseSqlite(sqliteConnection.ConnectionString));
 builder.Services.AddSingleton<MockScenarioState>();
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddScoped<TransactionImportService>();
 builder.Services.AddSingleton<ITransactionSource>(services =>
     new MockTransactionSource("Store Uptown", services.GetRequiredService<MockScenarioState>()));
 builder.Services.AddSingleton<ITransactionSource>(services =>
