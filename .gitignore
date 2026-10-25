@@ -1,0 +1,50 @@
+# .NET build and publish output
+**/bin/
+**/obj/
+**/artifacts/
+**/publish/
+TestResults/
+*.nupkg
+*.snupkg
+
+# IDE and user-specific settings
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Angular / Node dependencies, builds, and caches
+node_modules/
+dist/
+.angular/
+coverage/
+.npm/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# SQLite databases and journals
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/appsettings.Local.json
+**/appsettings.*.Local.json
+
+# Logs and operating system files
+*.log
+.DS_Store
+Thumbs.db
