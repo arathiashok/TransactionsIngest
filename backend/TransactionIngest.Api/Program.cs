@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 using TransactionIngest.Api.Data;
@@ -24,7 +25,8 @@ if (!string.IsNullOrEmpty(sqliteConnection.DataSource)
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddDbContext<TransactionIngestDbContext>(options =>
     options.UseSqlite(sqliteConnection.ConnectionString));
 builder.Services.AddSingleton<MockScenarioState>();
