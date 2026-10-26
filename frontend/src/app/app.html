@@ -1,13 +1,38 @@
-<main class="workspace">
-  <header class="page-header">
-    <div>
-      <h1>Transaction Ingest</h1>
-      <p>Review source transactions and import the latest snapshots.</p>
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="app-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+          <path d="M5 7h14m-3-3 3 3-3 3"/>
+          <path d="M19 17H5m3-3-3 3 3 3"/>
+        </svg>
+      </span>
+      <span>Transactions Ingest</span>
     </div>
-    <button class="primary-button" type="button" (click)="importTransactions()" [disabled]="busy()">
-      {{ importing() ? 'Importing…' : 'Import Transactions' }}
-    </button>
-  </header>
+    <span class="workspace-label">Retail operations</span>
+  </div>
+</header>
+
+<main class="workspace">
+  <div class="page-heading">
+    <h1>Transaction Management</h1>
+    <p>Monitor transaction activity across your stores and online channels.</p>
+  </div>
+
+  <section class="overview" aria-label="Transaction overview" [attr.aria-busy]="loading()">
+    <article class="metric">
+      <div><h2>Total Transactions</h2><p>{{ (loading() || loadError()) && !transactions().length ? '—' : (transactions().length | number:'1.0-0') }}</p></div>
+      <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>
+    </article>
+    <article class="metric">
+      <div><h2>Active Transactions</h2><p>{{ (loading() || loadError()) && !transactions().length ? '—' : (activeCount() | number:'1.0-0') }}</p></div>
+      <span class="metric-icon active-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span>
+    </article>
+    <article class="metric">
+      <div><h2>Revoked Transactions</h2><p>{{ (loading() || loadError()) && !transactions().length ? '—' : (revokedCount() | number:'1.0-0') }}</p></div>
+      <span class="metric-icon revoked-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></span>
+    </article>
+  </section>
 
   @if (importError()) {
     <div class="notice error" role="alert">{{ importError() }}</div>
@@ -37,47 +62,74 @@
   }
 
   <section class="table-card" aria-labelledby="transactions-heading" [attr.aria-busy]="busy()">
-    <div class="table-heading">
-      <div class="table-title">
-        <h2 id="transactions-heading">Transactions</h2>
-        <span class="record-count">{{ transactions().length }} records</span>
+    <div class="section-heading">
+      <div><h2 id="transactions-heading">Transactions</h2><p>Browse and manage your transaction records.</p></div>
+      <div class="actions">
+        <button class="secondary-button" type="button" (click)="loadTransactions()" [disabled]="busy()">
+          <svg aria-hidden="true" [class.spinning]="loading()" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>
+          {{ loading() ? 'Refreshing…' : 'Refresh' }}
+        </button>
+        <button class="primary-button" type="button" (click)="importTransactions()" [disabled]="busy()">
+          @if (importing()) { <span class="spinner" aria-hidden="true"></span> }
+          @else { <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5"/></svg> }
+          {{ importing() ? 'Importing…' : 'Import Transactions' }}
+        </button>
       </div>
-      <span class="time-note">All times in UTC</span>
+    </div>
+
+    <div class="filters">
+      <div class="filter-field">
+        <label for="source-filter">Source System</label>
+        <select id="source-filter" #sourceSelect [value]="sourceFilter()" (change)="sourceFilter.set(sourceSelect.value)" [disabled]="busy()">
+          <option value="">All source systems</option>
+          @for (source of sourceSystems(); track source) { <option [value]="source">{{ source }}</option> }
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="status-filter">Status</label>
+        <select id="status-filter" #statusSelect [value]="statusFilter()" (change)="statusFilter.set(statusSelect.value)" [disabled]="busy()">
+          <option value="">All statuses</option><option value="Active">Active</option><option value="Revoked">Revoked</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="sort-order">Sort by</label>
+        <select id="sort-order" #sortSelect [value]="sortOrder()" (change)="sortOrder.set(sortSelect.value)" [disabled]="busy()">
+          <option value="time-desc">Transaction time: Newest first</option>
+          <option value="time-asc">Transaction time: Oldest first</option>
+          <option value="amount-desc">Amount: High to low</option>
+          <option value="amount-asc">Amount: Low to high</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="results-bar">
+      <p role="status" aria-live="polite">Showing <strong>{{ filteredTransactions().length }}</strong> of <strong>{{ transactions().length }}</strong> transactions</p>
+      <span>All times in UTC</span>
     </div>
 
     @if (loadError()) {
       <div class="table-error" role="alert">
-        <div>
-          <p>{{ loadError() }}</p>
+        <div><p>{{ loadError() }}</p>
           @if (transactions().length) { <small>Showing the last successfully loaded results.</small> }
         </div>
-        <button class="retry-button" type="button" (click)="loadTransactions()" [disabled]="busy()">Retry</button>
+        <button class="secondary-button" type="button" (click)="loadTransactions()" [disabled]="busy()">Retry</button>
       </div>
     }
 
     @if (loading() || (importing() && !transactions().length)) {
-      <div class="table-state" role="status">{{ importing() ? 'Importing and refreshing transactions…' : 'Loading transactions…' }}</div>
-    } @else if (transactions().length) {
+      <div class="table-state" role="status"><span class="spinner" aria-hidden="true"></span>{{ importing() ? 'Importing and refreshing transactions…' : 'Loading transactions…' }}</div>
+    } @else if (filteredTransactions().length) {
       <div class="table-scroll" tabindex="0" role="region" aria-label="Transactions table">
         <table>
-          <thead>
-            <tr>
-              <th scope="col">Source System</th>
-              <th scope="col">Transaction ID</th>
-              <th scope="col">Location Code</th>
-              <th scope="col">Product Name</th>
-              <th scope="col" class="amount">Amount</th>
-              <th scope="col">Transaction Time</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th scope="col">Source System</th><th scope="col">Transaction ID</th><th scope="col">Location Code</th>
+            <th scope="col">Product Name</th><th scope="col" class="amount">Amount</th><th scope="col">Transaction Time</th><th scope="col">Status</th>
+          </tr></thead>
           <tbody>
-            @for (transaction of transactions(); track [transaction.sourceSystem, transaction.transactionId].join(':')) {
+            @for (transaction of filteredTransactions(); track [transaction.sourceSystem, transaction.transactionId].join(':')) {
               <tr>
-                <td class="source-name">{{ transaction.sourceSystem }}</td>
-                <td>{{ transaction.transactionId }}</td>
-                <td>{{ transaction.locationCode }}</td>
-                <td>{{ transaction.productName }}</td>
+                <td class="source-name">{{ transaction.sourceSystem }}</td><td class="transaction-id">{{ transaction.transactionId }}</td>
+                <td>{{ transaction.locationCode }}</td><td>{{ transaction.productName }}</td>
                 <td class="amount">{{ transaction.amount | number:'1.2-2':'en-US' }}</td>
                 <td class="timestamp">{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td>
                 <td><span class="status" [class.revoked]="transaction.status === 'Revoked'">{{ transaction.status }}</span></td>
@@ -88,8 +140,8 @@
       </div>
     } @else if (!loadError()) {
       <div class="table-state">
-        <strong>No transactions yet</strong>
-        <p>Import transactions to load the latest source snapshots.</p>
+        <strong>{{ transactions().length ? 'No matching transactions' : 'No transactions yet' }}</strong>
+        <p>{{ transactions().length ? 'Try a different source system or status.' : 'Import transactions to load the latest source snapshots.' }}</p>
       </div>
     }
   </section>
