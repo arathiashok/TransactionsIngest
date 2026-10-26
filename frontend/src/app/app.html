@@ -1,0 +1,96 @@
+<main class="workspace">
+  <header class="page-header">
+    <div>
+      <h1>Transaction Ingest</h1>
+      <p>Review source transactions and import the latest snapshots.</p>
+    </div>
+    <button class="primary-button" type="button" (click)="importTransactions()" [disabled]="busy()">
+      {{ importing() ? 'Importing…' : 'Import Transactions' }}
+    </button>
+  </header>
+
+  @if (importError()) {
+    <div class="notice error" role="alert">{{ importError() }}</div>
+  }
+
+  @if (importSummary(); as summary) {
+    <section class="notice summary" [class.warning]="sourceIssues().length > 0" role="status" aria-live="polite">
+      <div class="summary-heading">
+        <strong>{{ summary.stoppedOnDatabaseFailure ? 'Import stopped' : sourceIssues().length ? 'Import completed with issues' : 'Import complete' }}</strong>
+        <span>{{ summary.referenceTimeUtc | date:'yyyy-MM-dd HH:mm:ss':'UTC' }} UTC</span>
+      </div>
+      <p class="counts">
+        <span><strong>{{ summary.inserted }}</strong> inserted</span>
+        <span><strong>{{ summary.updated }}</strong> updated</span>
+        <span><strong>{{ summary.revoked }}</strong> revoked</span>
+        <span><strong>{{ summary.reactivated }}</strong> reactivated</span>
+        <span><strong>{{ summary.unchanged }}</strong> unchanged</span>
+      </p>
+      @if (sourceIssues().length) {
+        <ul class="source-issues">
+          @for (source of sourceIssues(); track source.sourceSystem) {
+            <li><strong>{{ source.sourceSystem }}:</strong> {{ source.error || 'Source was not processed.' }}</li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  <section class="table-card" aria-labelledby="transactions-heading" [attr.aria-busy]="busy()">
+    <div class="table-heading">
+      <div class="table-title">
+        <h2 id="transactions-heading">Transactions</h2>
+        <span class="record-count">{{ transactions().length }} records</span>
+      </div>
+      <span class="time-note">All times in UTC</span>
+    </div>
+
+    @if (loadError()) {
+      <div class="table-error" role="alert">
+        <div>
+          <p>{{ loadError() }}</p>
+          @if (transactions().length) { <small>Showing the last successfully loaded results.</small> }
+        </div>
+        <button class="retry-button" type="button" (click)="loadTransactions()" [disabled]="busy()">Retry</button>
+      </div>
+    }
+
+    @if (loading() || (importing() && !transactions().length)) {
+      <div class="table-state" role="status">{{ importing() ? 'Importing and refreshing transactions…' : 'Loading transactions…' }}</div>
+    } @else if (transactions().length) {
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Transactions table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Source System</th>
+              <th scope="col">Transaction ID</th>
+              <th scope="col">Location Code</th>
+              <th scope="col">Product Name</th>
+              <th scope="col" class="amount">Amount</th>
+              <th scope="col">Transaction Time</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (transaction of transactions(); track [transaction.sourceSystem, transaction.transactionId].join(':')) {
+              <tr>
+                <td class="source-name">{{ transaction.sourceSystem }}</td>
+                <td>{{ transaction.transactionId }}</td>
+                <td>{{ transaction.locationCode }}</td>
+                <td>{{ transaction.productName }}</td>
+                <td class="amount">{{ transaction.amount | number:'1.2-2':'en-US' }}</td>
+                <td class="timestamp">{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td>
+                <td><span class="status" [class.revoked]="transaction.status === 'Revoked'">{{ transaction.status }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (!loadError()) {
+      <div class="table-state">
+        <strong>No transactions yet</strong>
+        <p>Import transactions to load the latest source snapshots.</p>
+      </div>
+    }
+  </section>
+</main>
