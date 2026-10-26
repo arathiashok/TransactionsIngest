@@ -52,6 +52,32 @@ export class App implements OnInit {
   protected readonly importError = signal('');
   protected readonly importSummary = signal<ImportResult | null>(null);
   protected readonly busy = computed(() => this.loading() || this.importing());
+  protected readonly sourceFilter = signal('');
+  protected readonly statusFilter = signal('');
+  protected readonly sortOrder = signal('time-desc');
+  protected readonly activeCount = computed(() =>
+    this.transactions().filter(transaction => transaction.status === 'Active').length);
+  protected readonly revokedCount = computed(() =>
+    this.transactions().filter(transaction => transaction.status === 'Revoked').length);
+  protected readonly sourceSystems = computed(() =>
+    [...new Set(this.transactions().map(transaction => transaction.sourceSystem))]
+      .sort((left, right) => left.localeCompare(right, 'en')));
+  protected readonly filteredTransactions = computed(() => {
+    const rows = this.transactions().filter(transaction =>
+      (!this.sourceFilter() || transaction.sourceSystem === this.sourceFilter())
+      && (!this.statusFilter() || transaction.status === this.statusFilter()));
+    const sort = this.sortOrder();
+    const direction = sort.endsWith('asc') ? 1 : -1;
+
+    return rows.sort((left, right) => {
+      const difference = sort.startsWith('amount')
+        ? left.amount - right.amount
+        : Date.parse(left.transactionTime) - Date.parse(right.transactionTime);
+      return difference * direction
+        || left.sourceSystem.localeCompare(right.sourceSystem, 'en')
+        || left.transactionId - right.transactionId;
+    });
+  });
   protected readonly sourceIssues = computed(() =>
     this.importSummary()?.sources.filter(source => source.status !== 'Completed') ?? []);
 
