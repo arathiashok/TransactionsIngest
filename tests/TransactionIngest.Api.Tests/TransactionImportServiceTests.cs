@@ -129,7 +129,7 @@ public sealed class TransactionImportServiceTests
             Assert.Equal(101, audit.TransactionId);
             Assert.Equal(nameof(Transaction.Amount), audit.FieldName);
         });
-        Assert.Contains(updates, a => a.SourceSystem == "Store Uptown" && a.OldValue == "29.99" && a.NewValue == "24.99");
+        Assert.Contains(updates, a => a.SourceSystem == "Store Uptown" && a.OldValue == "29.99" && a.NewValue == "34.99");
         Assert.Contains(updates, a => a.SourceSystem == "Store Downtown" && a.OldValue == "129.99" && a.NewValue == "119.99");
         Assert.Contains(updates, a => a.SourceSystem == "Online" && a.OldValue == "69.99" && a.NewValue == "59.99");
         Assert.All(audits.Where(a => a.Action == TransactionAuditAction.Revoked), audit => AssertStatusAudit(audit, "Active", "Revoked"));

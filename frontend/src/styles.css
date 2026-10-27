@@ -21,3 +21,19 @@ select { width: 100%; min-width: 0; padding: 10px; border: 1px solid #ccd9dd; bo
 .spinner, .spinning { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner, .spinning { animation: none; } }
+
+/* Audit views share the dashboard's table and control styles. */
+.transaction-row { cursor: pointer; }
+.transaction-link { border: 0; padding: 3px 0; background: none; color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.audit-action { display: inline-block; padding: 4px 9px; border-radius: 20px; background: #e7f5f0; color: #22745c; font-size: 11px; font-weight: 600; }
+.audit-updated { background: #eaf2fb; color: #315e91; }
+.audit-revoked { background: #fcf0e7; color: #9b5b27; }
+.audit-reactivated { background: #f1eafb; color: #70439a; }
+.audit-value { min-width: 90px; max-width: 260px; overflow-wrap: anywhere; }
+.details-dialog { width: min(960px, calc(100% - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid var(--border); border-radius: 12px; color: var(--ink); box-shadow: 0 24px 80px #14363233; }
+.details-dialog::backdrop { background: #153b4659; }
+.details-dialog > .section-heading { position: sticky; top: 0; z-index: 1; background: white; border-bottom: 1px solid var(--border); }
+.detail-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 20px; padding: 24px; margin: 0; border-bottom: 1px solid var(--border); }
+.detail-facts dt { margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+.detail-facts dd { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 20px 18px; } }

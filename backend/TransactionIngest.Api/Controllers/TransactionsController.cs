@@ -19,6 +19,7 @@ public class TransactionsController(TransactionIngestDbContext dbContext) : Cont
             {
                 transaction.SourceSystem,
                 transaction.TransactionId,
+                CardNumber = MaskedCardNumber(transaction.CardNumber),
                 transaction.LocationCode,
                 transaction.ProductName,
                 transaction.Amount,
@@ -29,4 +30,10 @@ public class TransactionsController(TransactionIngestDbContext dbContext) : Cont
 
         return Ok(transactions);
     }
+
+    private static string? MaskedCardNumber(string? value) => value == ""
+        ? ""
+        : value is { Length: 7 } && value.StartsWith("***", StringComparison.Ordinal)
+            && value.Skip(3).All(character => character is >= '0' and <= '9')
+                ? value : null;
 }

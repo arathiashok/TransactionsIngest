@@ -96,7 +96,7 @@ public sealed class MockTransactionSource : ITransactionSource
         var (firstProduct, firstAmount, updatedAmount, secondProduct, secondAmount,
             addedProduct, addedAmount, delayedProduct, delayedAmount) = SourceSystem switch
         {
-            "Store Uptown" => ("Wireless Mouse", 29.99m, 24.99m,
+            "Store Uptown" => ("Wireless Mouse", 29.99m, 34.99m,
                 "Mechanical Keyboard", 89.99m, "USB-C Adapter", 19.99m, "Mouse Pad", 12.99m),
             "Store Downtown" => ("USB-C Docking Station", 129.99m, 119.99m,
                 "Over-Ear Headphones", 79.99m, "27-inch Monitor", 229.99m, "HDMI Cable", 14.99m),
