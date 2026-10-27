@@ -15,10 +15,11 @@
 
 <main class="workspace">
   <div class="page-heading">
-    <h1>Transaction Management</h1>
-    <p>Monitor transaction activity across your stores and online channels.</p>
+    <h1>{{ showingAudits() ? 'Audit History' : 'Transaction Management' }}</h1>
+    <p>{{ showingAudits() ? 'Review recorded transaction changes across all source systems.' : 'Monitor transaction activity across your stores and online channels.' }}</p>
   </div>
 
+  @if (!showingAudits()) {
   <section class="overview" aria-label="Transaction overview" [attr.aria-busy]="loading()">
     <article class="metric">
       <div><h2>Total Transactions</h2><p>{{ (loading() || loadError()) && !transactions().length ? '—' : (transactions().length | number:'1.0-0') }}</p></div>
@@ -65,6 +66,7 @@
     <div class="section-heading">
       <div><h2 id="transactions-heading">Transactions</h2><p>Browse and manage your transaction records.</p></div>
       <div class="actions">
+        <button class="secondary-button" type="button" (click)="showAuditHistory()" [disabled]="busy()">Show Audit History</button>
         <button class="secondary-button" type="button" (click)="loadTransactions()" [disabled]="busy()">
           <svg aria-hidden="true" [class.spinning]="loading()" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>
           {{ loading() ? 'Refreshing…' : 'Refresh' }}
@@ -80,9 +82,9 @@
     <div class="filters">
       <div class="filter-field">
         <label for="source-filter">Source System</label>
-        <select id="source-filter" #sourceSelect [value]="sourceFilter()" (change)="sourceFilter.set(sourceSelect.value)" [disabled]="busy()">
-          <option value="">All source systems</option>
-          @for (source of sourceSystems(); track source) { <option [value]="source">{{ source }}</option> }
+        <select id="source-filter" #sourceSelect (change)="sourceFilter.set(sourceSelect.value)" [disabled]="busy()">
+          <option value="" [selected]="sourceFilter() === ''">All source systems</option>
+          @for (source of sourceSystems(); track source) { <option [value]="source" [selected]="sourceFilter() === source">{{ source }}</option> }
         </select>
       </div>
       <div class="filter-field">
@@ -127,8 +129,11 @@
           </tr></thead>
           <tbody>
             @for (transaction of filteredTransactions(); track [transaction.sourceSystem, transaction.transactionId].join(':')) {
-              <tr>
-                <td class="source-name">{{ transaction.sourceSystem }}</td><td class="transaction-id">{{ transaction.transactionId }}</td>
+              <tr class="transaction-row" (click)="openTransaction(transaction, detailsButton)">
+                <td class="source-name">{{ transaction.sourceSystem }}</td>
+                <td class="transaction-id"><button #detailsButton class="transaction-link" type="button" [disabled]="busy()"
+                  [attr.aria-label]="'View details for ' + transaction.sourceSystem + ' transaction ' + transaction.transactionId"
+                  aria-haspopup="dialog" (click)="$event.stopPropagation(); openTransaction(transaction, detailsButton)">{{ transaction.transactionId }}</button></td>
                 <td>{{ transaction.locationCode }}</td><td>{{ transaction.productName }}</td>
                 <td class="amount">{{ transaction.amount | number:'1.2-2':'en-US' }}</td>
                 <td class="timestamp">{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td>
@@ -145,4 +150,75 @@
       </div>
     }
   </section>
+  } @else {
+    <section class="table-card" aria-labelledby="audit-heading" [attr.aria-busy]="globalAuditsLoading()">
+      <div class="section-heading">
+        <div><h2 id="audit-heading">All transaction events</h2><p>Newest first · All times in UTC</p></div>
+        <button class="secondary-button" type="button" (click)="backToTransactions()">Back to Transactions</button>
+      </div>
+      @if (globalAuditsLoading()) {
+        <div class="table-state" role="status"><span class="spinner" aria-hidden="true"></span>Loading audit history…</div>
+      } @else if (globalAuditsError()) {
+        <div class="table-error" role="alert"><p>{{ globalAuditsError() }}</p><button class="secondary-button" type="button" (click)="loadGlobalAudits()">Retry</button></div>
+      } @else if (!globalAudits().length) {
+        <div class="table-state" role="status"><strong>No audit events yet</strong><p>Import transactions to create the first audit records.</p></div>
+      } @else {
+        <div class="results-bar"><p role="status">{{ globalAudits().length }} recorded events</p></div>
+        <ng-container [ngTemplateOutlet]="auditTable" [ngTemplateOutletContext]="{ $implicit: globalAudits(), identity: true }" />
+      }
+    </section>
+  }
 </main>
+
+<dialog #transactionDialog class="details-dialog" aria-labelledby="details-title" (cancel)="$event.preventDefault(); closeTransaction()">
+  <div class="section-heading">
+    <div><h2 id="details-title">Transaction Details</h2><p>Transaction information and its recorded history.</p></div>
+    <button class="secondary-button" type="button" autofocus (click)="closeTransaction()">Close</button>
+  </div>
+  @if (selectedTransaction(); as transaction) {
+    <dl class="detail-facts">
+      <div><dt>Source System</dt><dd>{{ transaction.sourceSystem }}</dd></div>
+      <div><dt>Transaction ID</dt><dd>{{ transaction.transactionId }}</dd></div>
+      <div><dt>Masked Card Number</dt><dd>{{ transaction.cardNumber === '' ? 'Non-card payment' : (transaction.cardNumber ?? 'Unavailable') }}</dd></div>
+      <div><dt>Location Code</dt><dd>{{ transaction.locationCode }}</dd></div>
+      <div><dt>Product Name</dt><dd>{{ transaction.productName }}</dd></div>
+      <div><dt>Amount</dt><dd>{{ transaction.amount | number:'1.2-2':'en-US' }}</dd></div>
+      <div><dt>Transaction Time (UTC)</dt><dd>{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</dd></div>
+      <div><dt>Current Status</dt><dd><span class="status" [class.revoked]="transaction.status === 'Revoked'">{{ transaction.status }}</span></dd></div>
+    </dl>
+    <section aria-labelledby="transaction-audit-heading" [attr.aria-busy]="transactionAuditsLoading()">
+      <div class="section-heading"><div><h2 id="transaction-audit-heading">Audit History</h2><p>Events for {{ transaction.sourceSystem }} · {{ transaction.transactionId }} · Newest first · UTC</p></div></div>
+      @if (transactionAuditsLoading()) {
+        <div class="table-state" role="status"><span class="spinner" aria-hidden="true"></span>Loading transaction history…</div>
+      } @else if (transactionAuditsError()) {
+        <div class="table-error" role="alert"><p>{{ transactionAuditsError() }}</p><button class="secondary-button" type="button" (click)="loadTransactionAudits()">Retry</button></div>
+      } @else if (!transactionAudits().length) {
+        <div class="table-state" role="status">No audit events were recorded for this transaction.</div>
+      } @else {
+        <ng-container [ngTemplateOutlet]="auditTable" [ngTemplateOutletContext]="{ $implicit: transactionAudits(), identity: false }" />
+      }
+    </section>
+  }
+</dialog>
+
+<ng-template #auditTable let-events let-identity="identity">
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Audit events table">
+    <table class="audit-table">
+      <thead><tr>
+        <th scope="col">Timestamp (UTC)</th>
+        @if (identity) { <th scope="col">Source System</th><th scope="col">Transaction ID</th> }
+        <th scope="col">Action</th><th scope="col">Changed Field</th><th scope="col">Old Value</th><th scope="col">New Value</th>
+      </tr></thead>
+      <tbody>
+        @for (event of events; track event.id) {
+          <tr>
+            <td class="timestamp">{{ event.changedAtUtc | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td>
+            @if (identity) { <td class="source-name">{{ event.sourceSystem }}</td><td class="transaction-id">{{ event.transactionId }}</td> }
+            <td><span class="audit-action" [class.audit-updated]="event.action === 'Updated'" [class.audit-revoked]="event.action === 'Revoked'" [class.audit-reactivated]="event.action === 'Reactivated'">{{ event.action }}</span></td>
+            <td>{{ event.fieldName ?? '—' }}</td><td class="audit-value">{{ auditValue(event.oldValue) }}</td><td class="audit-value">{{ auditValue(event.newValue) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ng-template>

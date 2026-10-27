@@ -1,17 +1,29 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, finalize, of, switchMap, tap } from 'rxjs';
+import { EMPTY, Subscription, catchError, finalize, of, switchMap, tap } from 'rxjs';
 
 interface TransactionRow {
   sourceSystem: string;
   transactionId: number;
+  cardNumber: string | null;
   locationCode: string;
   productName: string;
   amount: number;
   transactionTime: string;
   status: 'Active' | 'Revoked';
+}
+
+interface AuditEvent {
+  id: number;
+  sourceSystem: string;
+  transactionId: number;
+  action: 'Created' | 'Updated' | 'Revoked' | 'Reactivated';
+  fieldName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAtUtc: string;
 }
 
 interface ImportCounts {
@@ -36,7 +48,7 @@ interface ImportResult extends ImportCounts {
 }
 
 @Component({
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, NgTemplateOutlet],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',
@@ -44,6 +56,19 @@ interface ImportResult extends ImportCounts {
 export class App implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
+  @ViewChild('transactionDialog') private transactionDialog!: ElementRef<HTMLDialogElement>;
+  private globalAuditRequest?: Subscription;
+  private transactionAuditRequest?: Subscription;
+  private detailsOpener: HTMLButtonElement | null = null;
+
+  protected readonly showingAudits = signal(false);
+  protected readonly globalAudits = signal<AuditEvent[]>([]);
+  protected readonly globalAuditsLoading = signal(false);
+  protected readonly globalAuditsError = signal('');
+  protected readonly selectedTransaction = signal<TransactionRow | null>(null);
+  protected readonly transactionAudits = signal<AuditEvent[]>([]);
+  protected readonly transactionAuditsLoading = signal(false);
+  protected readonly transactionAuditsError = signal('');
 
   protected readonly transactions = signal<TransactionRow[]>([]);
   protected readonly loading = signal(false);
@@ -83,6 +108,75 @@ export class App implements OnInit {
 
   ngOnInit(): void {
     this.loadTransactions();
+  }
+
+  protected showAuditHistory(): void {
+    if (this.busy()) return;
+    this.showingAudits.set(true);
+    this.loadGlobalAudits();
+  }
+
+  protected backToTransactions(): void {
+    this.globalAuditRequest?.unsubscribe();
+    this.showingAudits.set(false);
+  }
+
+  protected loadGlobalAudits(): void {
+    this.globalAuditRequest?.unsubscribe();
+    this.globalAudits.set([]);
+    this.globalAuditsError.set('');
+    this.globalAuditsLoading.set(true);
+    this.globalAuditRequest = this.http.get<AuditEvent[]>('/api/audits').pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.globalAuditsLoading.set(false))
+    ).subscribe({
+      next: events => this.globalAudits.set(events),
+      error: () => this.globalAuditsError.set('Could not load audit history. Check the API connection and try again.')
+    });
+  }
+
+  protected openTransaction(transaction: TransactionRow, opener: HTMLButtonElement): void {
+    if (this.busy()) return;
+    this.selectedTransaction.set(transaction);
+    this.detailsOpener = opener;
+    this.loadTransactionAudits();
+    if (!this.transactionDialog.nativeElement.open) this.transactionDialog.nativeElement.showModal();
+  }
+
+  protected closeTransaction(): void {
+    this.transactionAuditRequest?.unsubscribe();
+    this.transactionAudits.set([]);
+    this.transactionAuditsError.set('');
+    this.selectedTransaction.set(null);
+    this.transactionDialog.nativeElement.close();
+    this.detailsOpener?.focus();
+    this.detailsOpener = null;
+  }
+
+  protected loadTransactionAudits(): void {
+    const transaction = this.selectedTransaction();
+    if (!transaction) return;
+    // Cancelling the prior request prevents another selection's history appearing here.
+    this.transactionAuditRequest?.unsubscribe();
+    this.transactionAudits.set([]);
+    this.transactionAuditsError.set('');
+    this.transactionAuditsLoading.set(true);
+    const source = encodeURIComponent(transaction.sourceSystem);
+    this.transactionAuditRequest = this.http.get<AuditEvent[]>(
+      `/api/transactions/${source}/${transaction.transactionId}/audits`
+    ).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.transactionAuditsLoading.set(false))
+    ).subscribe({
+      next: events => this.transactionAudits.set(events),
+      error: (error: HttpErrorResponse) => this.transactionAuditsError.set(error.status === 404
+        ? 'This transaction no longer exists. Close this panel and refresh the transactions.'
+        : 'Could not load this transaction’s audit history. Please try again.')
+    });
+  }
+
+  protected auditValue(value: string | null): string {
+    return value === null ? '—' : value === '' ? '(empty)' : value;
   }
 
   protected loadTransactions(): void {
