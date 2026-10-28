@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Subscription, catchError, finalize, of, switchMap, tap } from 'rxjs';
+import { compareAmounts, formatAmount } from './amount';
 
 interface TransactionRow {
   sourceSystem: string;
@@ -10,7 +11,7 @@ interface TransactionRow {
   cardNumber: string | null;
   locationCode: string;
   productName: string;
-  amount: number;
+  amount: string;
   transactionTime: string;
   status: 'Active' | 'Revoked';
 }
@@ -54,6 +55,7 @@ interface ImportResult extends ImportCounts {
   templateUrl: './app.html',
 })
 export class App implements OnInit {
+  protected readonly formatAmount = formatAmount;
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
   @ViewChild('transactionDialog') private transactionDialog!: ElementRef<HTMLDialogElement>;
@@ -96,7 +98,7 @@ export class App implements OnInit {
 
     return rows.sort((left, right) => {
       const difference = sort.startsWith('amount')
-        ? left.amount - right.amount
+        ? compareAmounts(left.amount, right.amount)
         : Date.parse(left.transactionTime) - Date.parse(right.transactionTime);
       return difference * direction
         || left.sourceSystem.localeCompare(right.sourceSystem, 'en')

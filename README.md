@@ -12,7 +12,7 @@ The Angular dashboard provides transaction summaries, filtering, sorting, import
 | --- | --- |
 | Backend | C#, ASP.NET Core 10 controller-based Web API (`net10.0`) |
 | Database | SQLite, EF Core SQLite and design-time packages 10.0.13, Code-First migrations |
-| Frontend | Angular 22.2.3, CLI/build tooling 22.2.4, standalone components, plain CSS |
+| Frontend | Angular 22.2.3, CLI 22.2.4, build tooling 22.2.5, standalone components, plain CSS |
 | Frontend language / HTTP | TypeScript 6.0.3, RxJS 7.8.2, Angular `HttpClient` |
 | Automated tests | xUnit 2.9.3, Microsoft.NET.Test.Sdk 18.11.0, Visual Studio adapter 4.0.1 |
 | Verified development tools | .NET SDK 10.0.402, ASP.NET Core runtime / `dotnet-ef` 10.0.13, Node.js 22.23.4, npm 10.9.9 |
@@ -104,7 +104,7 @@ Open **http://localhost:4200/**. The API runs at **http://localhost:5100**. Angu
 
 Import results include `referenceTimeUtc`, `isBusy`, `stoppedOnDatabaseFailure`, five transaction counts (`inserted`, `updated`, `revoked`, `reactivated`, `unchanged`), and `sources` with each source's status, counts, and optional error. Source statuses are `Completed`, `SkippedIncomplete`, `SkippedInvalid`, `RetrievalFailed`, `DatabaseFailed`, and `NotProcessed`.
 
-Both audit APIs return `id`, `sourceSystem`, `transactionId`, `action`, `fieldName`, `oldValue`, `newValue`, and `changedAtUtc`. Actions and transaction statuses are readable strings. Read queries use `AsNoTracking` and do not expose EF navigation properties. Card values are empty for non-card payments or masked as `***4444`; unsafe legacy values are suppressed. Amounts are returned in currency units, not stored cents.
+Both audit APIs return `id`, `sourceSystem`, `transactionId`, `action`, `fieldName`, `oldValue`, `newValue`, and `changedAtUtc`. Actions and transaction statuses are readable strings. Read queries use `AsNoTracking` and do not expose EF navigation properties. Card values are empty for non-card payments or masked as `***4444`; unsafe legacy values are suppressed. The transaction API returns amounts in currency units as exact invariant decimal strings with two decimal places, such as `"29.99"`, rather than JSON numbers or stored cents.
 
 ```sh
 curl -X POST http://localhost:5100/api/import
@@ -268,27 +268,24 @@ From the repository root:
 dotnet build TransactionIngest.sln
 dotnet test TransactionIngest.sln
 cd frontend
+npm test
 npm run build
 cd ..
 ```
 
-The latest verification passed **all 56 backend tests**, the solution build, and the Angular production build. Tests use isolated in-memory SQLite databases with the real migrations and a controlled clock. Coverage includes reconciliation, idempotency, field-level audits, exact revocation boundaries, delayed records, reactivation, validation/source failures, source isolation, atomic rollback, cancellation, concurrency, and global/individual audit retrieval, ordering, and masked-card responses.
+The latest verification passed **67 backend tests and 13 frontend money tests**, the solution build, and the Angular production build. Backend tests use isolated in-memory SQLite databases with the real migrations and a controlled clock. Coverage includes reconciliation, idempotency, field-level audits, exact revocation boundaries, delayed records, reactivation, validation/source failures, source isolation, atomic rollback, cancellation, concurrency, and global/individual audit retrieval, ordering, and masked-card responses.
 
-Controller tests invoke actions directly; there is no automated hosted HTTP/browser suite or frontend test suite. The manual workflow above exercises integration. Angular builds to `frontend/dist/transaction-ingest/browser/`.
+Controller tests invoke actions directly. Frontend money tests run with `npm test` from `frontend/`, using Node's built-in runner to check exact formatting and amount sorting, including values at the monetary limits. There is no automated hosted HTTP/browser suite. The manual workflow above exercises integration. Angular builds to `frontend/dist/transaction-ingest/browser/`.
 
 ## Design Decisions and Limitations
 
-- **Exact money:** C# `decimal` values are stored as integer cents, enforcing `decimal(18,2)` range and precision without rounding. Zero and negative amounts/IDs are allowed. Browser JavaScript numbers cannot represent every value near the full monetary limit exactly.
+- **Exact money:** C# `decimal` values are stored as integer cents, enforcing `decimal(18,2)` range and precision without rounding. Zero and negative amounts/IDs are allowed. The API returns exact decimal strings; the frontend preserves the full supported range through string formatting and `bigint`-based integer-cent comparisons for amount sorting.
 - **UTC and validation:** Imports require UTC transaction times; database conversions preserve UTC on reads/writes. Source/location values are limited to 19 characters, card input to empty or `***` plus four digits. Product names allow 100 characters because the exercise's sample conflicts with its stated short-string limit.
 - **Small, explicit architecture:** Two domain entities, direct DbContext use, per-source atomic saves, and a process-local concurrency gate. There is no distributed import lock or cross-source all-or-nothing transaction.
 - **Mocked/manual operation:** External APIs are simulated. No background scheduler, scenario-switching endpoint, or real source integration is included.
 - **Optional scope omitted:** No finalization/immutable older transactions, pagination, authentication, or transaction editing. Filters and sorts operate on the complete loaded dataset.
 - **Hosting:** The Angular proxy is development-only. The API does not host the production frontend build; production static hosting, API forwarding, and certificate setup are outside this submission's setup instructions.
 
-## AI Assistance and Development Effort
+## AI Assistance
 
-AI assistance was used for design, implementation, verification, and documentation. Detailed prompts and design discussions will be supplied separately rather than reproduced here.
-
-**Before submission, the author must provide:** the separate AI disclosure/prompt-history document or link, the original development-time estimate, and the actual development time. Those records and figures are not present in this repository; no hours or prompt history have been invented.
-
-The original exercise brief/submission instructions are not included in the repository. This README reflects the known acceptance criteria and implemented optional details/audit views. Check the original brief for any additional delivery requirements and confirm that the separate disclosure and effort records satisfy its instructions.
+ChatGPT and Codex were used during the development of this application for design discussions, implementation, testing, code review, and documentation. The significant prompts, technical decisions, and revisions to AI-generated code are documented in [AI_DISCLOSURE.md](AI_DISCLOSURE.md).

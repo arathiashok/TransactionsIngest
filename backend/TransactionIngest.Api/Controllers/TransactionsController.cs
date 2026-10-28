@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TransactionIngest.Api.Data;
@@ -28,7 +29,18 @@ public class TransactionsController(TransactionIngestDbContext dbContext) : Cont
             })
             .ToListAsync(cancellationToken);
 
-        return Ok(transactions);
+        // Format after retrieval so SQLite never converts exact decimal amounts to floating point.
+        return Ok(transactions.Select(transaction => new
+        {
+            transaction.SourceSystem,
+            transaction.TransactionId,
+            transaction.CardNumber,
+            transaction.LocationCode,
+            transaction.ProductName,
+            Amount = transaction.Amount.ToString("F2", CultureInfo.InvariantCulture),
+            transaction.TransactionTime,
+            transaction.Status
+        }).ToList());
     }
 
     private static string? MaskedCardNumber(string? value) => value == ""

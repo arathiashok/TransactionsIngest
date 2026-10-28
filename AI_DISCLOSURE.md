@@ -716,6 +716,50 @@ Do not invent actual development hours or claim that AI assistance was not used.
 
 **Implementation and review:** Codex added read-only global and transaction-specific audit endpoints, masked-card safeguards, and the two Angular audit views. I verified that individual histories remain isolated by composite identity and that the new navigation does not break filtering, sorting, import, or refresh. I also tested filter retention and dialog scrolling in the browser. The expanded backend suite passed 56 tests, and the Angular production build succeeded. Codex assisted with the README; I reviewed its technical accuracy and kept the setup and manual-testing instructions practical.
 
+### Phase 10: Final dependency and monetary precision fixes
+
+A final review identified Vite development-tooling advisories and precision loss when JavaScript parsed large valid transaction amounts as numbers. I first requested investigation without implementation, then approved a compatible builder patch and exact decimal strings at the API boundary. I required the existing decimal model, integer-cent storage, reconciliation logic, and my manually edited README to remain unchanged.
+
+<details>
+<summary>Exact excerpts from the final implementation request</summary>
+
+```text
+### 2. Angular dependency security update
+
+Proceed with the previously recommended patch update from `@angular/build` 22.2.4 to 22.2.5, provided it remains compatible.
+
+- Update only the required development dependencies and lockfile.
+- Verify that the resolved Vite version includes the relevant security fixes.
+- Run `npm ci`, `npm audit`, and the Angular production build.
+- Verify that the Angular development server and API proxy still function correctly.
+- Review the dependency diff to ensure no unnecessary packages were upgraded.
+
+Avoid unrelated framework updates or application changes.
+
+### 3. Fix monetary precision
+
+Proceed with the recommended approach of representing transaction amounts as exact decimal strings in the API response.
+
+- Preserve the existing C# decimal model, EF Core mappings, SQLite integer-cent storage, and reconciliation logic.
+- Serialize transaction amounts as invariant decimal strings with exactly two decimal places.
+- Update the Angular transaction model to use strings for amounts.
+- Format amounts without converting them to JavaScript numbers.
+- Use `bigint` cents for exact amount comparisons when sorting.
+- Preserve the existing ascending and descending sorting behavior.
+- Ensure the transaction table and details view display amounts consistently.
+- Do not introduce additional libraries unless absolutely necessary.
+
+Add focused tests for normal amounts, zero, negative amounts, maximum supported values, and large values differing by one cent.
+
+Pay attention to the API response contract change from a JSON number to a string. Check for any other code that consumes the amount field and update it where necessary.
+```
+
+</details>
+
+**Implementation and review:** Codex updated `@angular/build` to 22.2.5, resolving Vite 8.3.5 and its patched dependencies without upgrading the Angular runtime or CLI. Codex changed the transaction response's `amount` from a JSON number to an invariant two-decimal string, updated Angular formatting and sorting to preserve that representation, and added focused SQLite/API tests plus frontend money tests using Node's built-in runner. This was a coordinated API contract change; other consumers expecting a numeric amount would need updating. No entity, database mapping, migration, or reconciliation change was needed.
+
+**Verification:** Codex recorded 67 passing backend tests, 13 passing frontend money tests, successful solution and Angular production builds, and zero advisories from `npm audit` after `npm ci`. Runtime checks through the Angular proxy used an isolated SQLite database and the fixed UTC clock for Baseline, Changes, Reactivation, repeated imports, Incomplete, and Failure. Browser checks confirmed filtering, refresh, details, audit navigation, and exact display and sorting of maximum values and amounts one cent apart. Existing development database files were verified unchanged. I then requested focused documentation corrections while preserving my README AI Assistance wording and all earlier prompt quotations.
+
 ## Design decisions and clarifications
 
 Several decisions became clearer during review, and I used those discussions to narrow the implementation rather than add features without a clear purpose.
@@ -740,7 +784,7 @@ I reviewed Codex's implementation at each checkpoint and directed the following 
 
 I tested the running Angular application against the ASP.NET Core API and inspected transactions and audit records in SQLite. I exercised the Baseline, Changes, and Reactivation lifecycle, checked repeat imports, and reviewed the incomplete and failure behaviors. I also inspected the changes in the backend controllers, import configuration, tests, and Angular templates before committing them.
 
-The final recorded verification was **56 passing backend tests** and a successful Angular production build. I manually verified the global and transaction-specific audit views, filter preservation, navigation, and dialog scrolling. The backend controller tests run against SQLite but invoke controller actions directly; I did not add an automated browser end-to-end suite.
+The final recorded verification passed **67 backend tests and 13 frontend money tests**, the solution build, and the Angular production build. I manually verified the global and transaction-specific audit views, filter preservation, navigation, and dialog scrolling. The backend controller tests run against SQLite but invoke controller actions directly; frontend money tests use Node's built-in runner. I did not add an automated browser end-to-end suite.
 
 ## Notes on the prompt record
 

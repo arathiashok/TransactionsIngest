@@ -1,6 +1,6 @@
 # Transaction Ingest frontend
 
-Standalone Angular application generated with Angular CLI 22.2.4. It uses TypeScript and plain CSS, without routing, server-side rendering, or test tooling.
+Standalone Angular application generated with Angular CLI 22.2.4. It uses TypeScript and plain CSS, without routing or server-side rendering. Automated money tests use Node's built-in runner and can be run with `npm test`.
 
 ## Install dependencies
 

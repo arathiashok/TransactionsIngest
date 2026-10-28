@@ -135,7 +135,7 @@
                   [attr.aria-label]="'View details for ' + transaction.sourceSystem + ' transaction ' + transaction.transactionId"
                   aria-haspopup="dialog" (click)="$event.stopPropagation(); openTransaction(transaction, detailsButton)">{{ transaction.transactionId }}</button></td>
                 <td>{{ transaction.locationCode }}</td><td>{{ transaction.productName }}</td>
-                <td class="amount">{{ transaction.amount | number:'1.2-2':'en-US' }}</td>
+                <td class="amount">{{ formatAmount(transaction.amount) }}</td>
                 <td class="timestamp">{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</td>
                 <td><span class="status" [class.revoked]="transaction.status === 'Revoked'">{{ transaction.status }}</span></td>
               </tr>
@@ -182,7 +182,7 @@
       <div><dt>Masked Card Number</dt><dd>{{ transaction.cardNumber === '' ? 'Non-card payment' : (transaction.cardNumber ?? 'Unavailable') }}</dd></div>
       <div><dt>Location Code</dt><dd>{{ transaction.locationCode }}</dd></div>
       <div><dt>Product Name</dt><dd>{{ transaction.productName }}</dd></div>
-      <div><dt>Amount</dt><dd>{{ transaction.amount | number:'1.2-2':'en-US' }}</dd></div>
+      <div><dt>Amount</dt><dd>{{ formatAmount(transaction.amount) }}</dd></div>
       <div><dt>Transaction Time (UTC)</dt><dd>{{ transaction.transactionTime | date:'yyyy-MM-dd HH:mm:ss':'UTC' }}</dd></div>
       <div><dt>Current Status</dt><dd><span class="status" [class.revoked]="transaction.status === 'Revoked'">{{ transaction.status }}</span></dd></div>
     </dl>
